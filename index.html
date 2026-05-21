@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>img2svg — Image to SVG Converter</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <header>
+    <h1>img2svg</h1>
+    <p class="subtitle">Raster image to SVG vector conversion — right in your browser</p>
+  </header>
+
+  <main>
+    <div class="panels">
+      <section id="input-panel" class="panel">
+        <h2>Original</h2>
+        <div id="drop-zone">
+          <input type="file" id="file-input" accept="image/*" hidden>
+          <div class="drop-zone-content">
+            <svg class="drop-icon" viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="6" width="36" height="36" rx="4"/>
+              <circle cx="18" cy="20" r="4"/>
+              <path d="M6 34 l10-10 8 8 6-6 12 12"/>
+            </svg>
+            <p>Drop an image here or <span class="link">click to upload</span></p>
+            <p class="hint">PNG, JPG, GIF, WebP</p>
+          </div>
+        </div>
+        <div id="original-preview" class="preview-area" hidden></div>
+      </section>
+
+      <section id="output-panel" class="panel">
+        <h2>SVG Output</h2>
+        <div id="svg-preview" class="preview-area">
+          <p class="placeholder">SVG output will appear here</p>
+        </div>
+      </section>
+    </div>
+
+    <aside id="controls-panel">
+      <div class="controls-header">
+        <h2>Tracing Options</h2>
+        <button id="reset-btn" class="btn btn-small" title="Reset to defaults">Reset</button>
+      </div>
+      <div id="controls-grid"></div>
+    </aside>
+  </main>
+
+  <footer>
+    <div class="footer-left">
+      <button id="download-btn" class="btn btn-primary" disabled>Download SVG</button>
+      <button id="copy-btn" class="btn" disabled>Copy SVG</button>
+    </div>
+    <span id="status-text"></span>
+  </footer>
+
+  <div id="size-warning" class="warning" hidden>
+    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+      <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 3a1 1 0 011 1v4a1 1 0 01-2 0V6a1 1 0 011-1zm0 8a1 1 0 100 2 1 1 0 000-2z"/>
+    </svg>
+    <span>Image was downscaled for performance. Original size: <span id="original-size"></span></span>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
