@@ -108,6 +108,10 @@ export function renderOriginal(imageData) {
 
 export function renderSVGPreview(svgString) {
   const container = document.getElementById('svg-preview');
+
+  // Remove overlay if present
+  hideTracingOverlay();
+
   container.innerHTML = svgString;
   const svg = container.querySelector('svg');
   if (!svg) return;
@@ -123,6 +127,29 @@ export function renderSVGPreview(svgString) {
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svg.style.maxWidth = '100%';
   svg.style.maxHeight = '100%';
+}
+
+export function showTracingOverlay() {
+  const container = document.getElementById('svg-preview');
+
+  // Don't overlay if there's only placeholder content
+  if (container.querySelector('.placeholder') || container.querySelector('.tracing-indicator')) {
+    showTracingIndicator();
+    return;
+  }
+
+  // Remove any existing overlay
+  hideTracingOverlay();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'tracing-overlay';
+  overlay.innerHTML = '<div class="spinner"></div>';
+  container.appendChild(overlay);
+}
+
+export function hideTracingOverlay() {
+  const overlay = document.querySelector('#svg-preview .tracing-overlay');
+  if (overlay) overlay.remove();
 }
 
 export function showTracingIndicator() {

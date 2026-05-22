@@ -1,4 +1,4 @@
-import { initUI, getImageDataFromFile, renderOriginal, renderSVGPreview, showTracingIndicator, showStatus, allowNewImage } from './ui.js';
+import { initUI, getImageDataFromFile, renderOriginal, renderSVGPreview, showTracingOverlay, showStatus, allowNewImage } from './ui.js';
 import { initControls, getTracingOptions } from './controls.js';
 import { traceImage } from './tracer.js';
 import { initDownload, setDownloadFilename, setButtonsEnabled } from './download.js';
@@ -28,7 +28,7 @@ async function runTrace() {
   if (!currentImageData) return;
 
   const id = ++traceId;
-  showTracingIndicator();
+  showTracingOverlay();
   showStatus('Tracing...');
   setButtonsEnabled(false);
 

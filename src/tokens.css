@@ -26,6 +26,8 @@
   --preview-checker: #ebebeb;
   --radius: 10px;
   --radius-lg: 14px;
+  --radius-full: 100px;
+  --tab-indicator: 2px;
   --transition: 180ms ease;
   color-scheme: light;
 }
@@ -307,11 +309,12 @@ body,
 #drop-zone,
 .icon-btn,
 .btn,
+.tab,
+.chip,
 select,
 input[type="range"],
 input[type="checkbox"],
 .toast,
-footer,
 header {
   transition:
     background var(--transition),

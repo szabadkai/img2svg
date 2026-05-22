@@ -9,6 +9,7 @@ const MODES = {
     fixed: { numberofcolors: 2, colorsampling: 0 },
     controls: [
       { key: 'colorquantcycles', type: 'range', label: 'Threshold', min: 1, max: 20, step: 1 },
+      { key: 'removebackground', type: 'checkbox', label: 'Remove background' },
     ],
     presetChips: [
       { label: 'Default', preset: 'default' },
@@ -21,6 +22,7 @@ const MODES = {
     controls: [
       { key: 'numberofcolors', type: 'range', label: 'Colors', min: 2, max: 64, step: 1 },
       { key: 'colorquantcycles', type: 'range', label: 'Quant cycles', min: 1, max: 20, step: 1 },
+      { key: 'removebackground', type: 'checkbox', label: 'Remove background' },
     ],
     presetChips: [
       { label: 'Poster', preset: 'posterized2' },
@@ -87,7 +89,14 @@ export function initControls(changeCallback) {
   controlElements = {};
 
   const defaults = getPresetOptions('default');
-  currentValues = { ...defaults };
+  currentValues = {
+    ...defaults,
+    removebackground: true,
+    // Curvier defaults: reject straight-line fits aggressively, accept curves easily
+    ltres: 0.01,
+    qtres: 2,
+    rightangleenhance: false,
+  };
 
   // Tabs
   const tabs = document.querySelectorAll('.tab-bar .tab');
@@ -116,7 +125,13 @@ export function initControls(changeCallback) {
   // Reset
   document.getElementById('reset-btn').addEventListener('click', () => {
     const defaults = getPresetOptions('default');
-    currentValues = { ...defaults };
+    currentValues = {
+      ...defaults,
+      removebackground: true,
+      ltres: 0.01,
+      qtres: 2,
+      rightangleenhance: false,
+    };
     applyModeFixed();
     renderTabContent();
     renderAdvancedControls();
@@ -144,6 +159,14 @@ function switchTab(tabId) {
     t.classList.toggle('active', isActive);
     t.setAttribute('aria-selected', isActive);
   });
+
+  // Restore color defaults when switching to Color
+  if (tabId === 'color') {
+    if (currentValues.numberofcolors <= 2) {
+      currentValues.numberofcolors = 16;
+    }
+    currentValues.colorsampling = 2;
+  }
 
   // Apply mode-fixed overrides
   applyModeFixed();

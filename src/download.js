@@ -20,9 +20,12 @@ export function initDownload(getSVGString) {
     if (!svg) return;
     try {
       await navigator.clipboard.writeText(svg);
-      const original = copyBtn.textContent;
-      copyBtn.textContent = 'Copied!';
-      setTimeout(() => { copyBtn.textContent = original; }, 1500);
+      const label = copyBtn.querySelector('.btn-label');
+      if (label) {
+        const original = label.textContent;
+        label.textContent = 'Copied!';
+        setTimeout(() => { label.textContent = original; }, 1500);
+      }
     } catch {
       console.error('Failed to copy to clipboard');
     }
