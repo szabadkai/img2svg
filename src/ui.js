@@ -100,19 +100,29 @@ export function renderOriginal(imageData) {
   canvas.height = imageData.height;
   const ctx = canvas.getContext('2d');
   ctx.putImageData(imageData, 0, 0);
-  container.appendChild(canvas);
+
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  container.appendChild(img);
 }
 
 export function renderSVGPreview(svgString) {
   const container = document.getElementById('svg-preview');
   container.innerHTML = svgString;
   const svg = container.querySelector('svg');
-  if (svg) {
-    svg.removeAttribute('width');
-    svg.removeAttribute('height');
-    svg.style.maxWidth = '100%';
-    svg.style.maxHeight = '100%';
+  if (!svg) return;
+
+  const w = svg.getAttribute('width');
+  const h = svg.getAttribute('height');
+  if (w && h && !svg.getAttribute('viewBox')) {
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   }
+
+  svg.removeAttribute('width');
+  svg.removeAttribute('height');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.style.maxWidth = '100%';
+  svg.style.maxHeight = '100%';
 }
 
 export function showTracingIndicator() {

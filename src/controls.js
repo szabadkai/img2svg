@@ -1,116 +1,256 @@
-import { getPresetNames, getPresetOptions } from './tracer.js';
+import { getPresetOptions } from './tracer.js';
 
-const CONTROL_GROUPS = [
-  {
-    title: 'Preset',
+/* ───────────────────────────────────────
+   Mode definitions
+   ─────────────────────────────────────── */
+
+const MODES = {
+  bw: {
+    fixed: { numberofcolors: 2, colorsampling: 0 },
     controls: [
-      {
-        key: 'preset',
-        type: 'select',
-        label: 'Preset',
-        options: [],
-      },
+      { key: 'colorquantcycles', type: 'range', label: 'Threshold', min: 1, max: 20, step: 1 },
+    ],
+    presetChips: [
+      { label: 'Default', preset: 'default' },
+      { label: 'Sharp', preset: 'sharp' },
+      { label: 'Curvy', preset: 'curvy' },
     ],
   },
-  {
-    title: 'Color Quantization',
+  color: {
+    fixed: {},
     controls: [
-      { key: 'numberofcolors', type: 'range', label: 'Colors', min: 2, max: 128, step: 1 },
-      {
-        key: 'colorsampling',
-        type: 'select',
-        label: 'Sampling',
-        options: [
-          { value: '0', label: 'Generated palette' },
-          { value: '1', label: 'Random' },
-          { value: '2', label: 'Deterministic' },
-        ],
-      },
+      { key: 'numberofcolors', type: 'range', label: 'Colors', min: 2, max: 64, step: 1 },
       { key: 'colorquantcycles', type: 'range', label: 'Quant cycles', min: 1, max: 20, step: 1 },
-      { key: 'mincolorratio', type: 'range', label: 'Min color ratio', min: 0, max: 0.5, step: 0.01 },
+    ],
+    presetChips: [
+      { label: 'Poster', preset: 'posterized2' },
+      { label: 'Detailed', preset: 'detailed' },
+      { label: 'Smooth', preset: 'smoothed' },
+      { label: 'Artistic', preset: 'artistic1' },
+      { label: 'Grayscale', preset: 'grayscale' },
+    ],
+  },
+};
+
+const ADVANCED_CONTROLS = [
+  { key: 'ltres', type: 'range', label: 'Smooth corners', min: 0.01, max: 10, step: 0.1 },
+  { key: 'qtres', type: 'range', label: 'Curve tolerance', min: 0.01, max: 10, step: 0.1 },
+  { key: 'pathomit', type: 'range', label: 'Suppress small paths', min: 0, max: 100, step: 1 },
+  { key: 'blurradius', type: 'range', label: 'Blur', min: 0, max: 5, step: 1 },
+  { key: 'blurdelta', type: 'range', label: 'Blur delta', min: 1, max: 256, step: 1 },
+  { key: 'rightangleenhance', type: 'checkbox', label: 'Enhance right angles' },
+  { key: 'strokewidth', type: 'range', label: 'Stroke width', min: 0, max: 10, step: 0.5 },
+  { key: 'scale', type: 'range', label: 'Scale', min: 1, max: 10, step: 0.5 },
+  { key: 'roundcoords', type: 'range', label: 'Round coords', min: 0, max: 5, step: 1 },
+  { key: 'linefilter', type: 'checkbox', label: 'Line filter' },
+  {
+    key: 'layering',
+    type: 'select',
+    label: 'Layering',
+    options: [
+      { value: '0', label: 'Sequential' },
+      { value: '1', label: 'Parallel' },
     ],
   },
   {
-    title: 'Tracing',
-    controls: [
-      { key: 'ltres', type: 'range', label: 'Line threshold', min: 0.01, max: 10, step: 0.1 },
-      { key: 'qtres', type: 'range', label: 'Curve threshold', min: 0.01, max: 10, step: 0.1 },
-      { key: 'pathomit', type: 'range', label: 'Path omit', min: 0, max: 100, step: 1 },
-      { key: 'rightangleenhance', type: 'checkbox', label: 'Right angle enhance' },
+    key: 'colorsampling',
+    type: 'select',
+    label: 'Color sampling',
+    options: [
+      { value: '0', label: 'Generated palette' },
+      { value: '1', label: 'Random' },
+      { value: '2', label: 'Deterministic' },
     ],
   },
-  {
-    title: 'Blur',
-    controls: [
-      { key: 'blurradius', type: 'range', label: 'Blur radius', min: 0, max: 5, step: 1 },
-      { key: 'blurdelta', type: 'range', label: 'Blur delta', min: 1, max: 256, step: 1 },
-    ],
-  },
-  {
-    title: 'SVG Rendering',
-    controls: [
-      { key: 'strokewidth', type: 'range', label: 'Stroke width', min: 0, max: 10, step: 0.5 },
-      { key: 'linefilter', type: 'checkbox', label: 'Line filter' },
-      { key: 'scale', type: 'range', label: 'Scale', min: 1, max: 10, step: 0.5 },
-      { key: 'roundcoords', type: 'range', label: 'Round coords', min: 0, max: 5, step: 1 },
-      {
-        key: 'layering',
-        type: 'select',
-        label: 'Layering',
-        options: [
-          { value: '0', label: 'Sequential' },
-          { value: '1', label: 'Parallel' },
-        ],
-      },
-    ],
-  },
+  { key: 'mincolorratio', type: 'range', label: 'Min color ratio', min: 0, max: 0.5, step: 0.01 },
 ];
+
+/* ───────────────────────────────────────
+   State
+   ─────────────────────────────────────── */
 
 let controlElements = {};
 let currentValues = {};
+let activeTab = 'bw';
+let activeChip = null;
+let livePreview = true;
 let onChange = null;
+let debounceTimer = null;
+let hasPendingChange = false;
+
+/* ───────────────────────────────────────
+   Init
+   ─────────────────────────────────────── */
 
 export function initControls(changeCallback) {
   onChange = changeCallback;
-  const grid = document.getElementById('controls-grid');
-  grid.innerHTML = '';
   controlElements = {};
 
-  const presetNames = getPresetNames();
-  CONTROL_GROUPS[0].controls[0].options = presetNames.map(name => ({
-    value: name,
-    label: name,
-  }));
-
   const defaults = getPresetOptions('default');
-  currentValues = { ...defaults, preset: 'default' };
+  currentValues = { ...defaults };
 
-  for (const group of CONTROL_GROUPS) {
-    const groupEl = document.createElement('div');
-    groupEl.className = 'control-group';
+  // Tabs
+  const tabs = document.querySelectorAll('.tab-bar .tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
 
-    const titleEl = document.createElement('div');
-    titleEl.className = 'control-group-title';
-    titleEl.textContent = group.title;
-    groupEl.appendChild(titleEl);
-
-    for (const ctrl of group.controls) {
-      const row = buildControlRow(ctrl);
-      groupEl.appendChild(row);
+  // Live toggle
+  const liveToggle = document.getElementById('live-toggle');
+  const traceBtn = document.getElementById('trace-btn');
+  liveToggle.addEventListener('change', () => {
+    livePreview = liveToggle.checked;
+    traceBtn.hidden = livePreview;
+    if (livePreview && hasPendingChange) {
+      hasPendingChange = false;
+      triggerChange();
     }
+  });
 
-    grid.appendChild(groupEl);
-  }
+  // Trace button (for manual mode)
+  traceBtn.addEventListener('click', () => {
+    hasPendingChange = false;
+    triggerChange();
+  });
 
-  applyValuesToDOM(currentValues);
-
+  // Reset
   document.getElementById('reset-btn').addEventListener('click', () => {
     const defaults = getPresetOptions('default');
-    currentValues = { ...defaults, preset: 'default' };
-    applyValuesToDOM(currentValues);
+    currentValues = { ...defaults };
+    applyModeFixed();
+    renderTabContent();
+    renderAdvancedControls();
+    activeChip = null;
+    updateChipStates();
     fireChange();
   });
+
+  // Render initial state
+  switchTab('bw');
+  renderAdvancedControls();
 }
+
+/* ───────────────────────────────────────
+   Tab switching
+   ─────────────────────────────────────── */
+
+function switchTab(tabId) {
+  activeTab = tabId;
+  activeChip = null;
+
+  // Update tab buttons
+  document.querySelectorAll('.tab-bar .tab').forEach(t => {
+    const isActive = t.dataset.tab === tabId;
+    t.classList.toggle('active', isActive);
+    t.setAttribute('aria-selected', isActive);
+  });
+
+  // Apply mode-fixed overrides
+  applyModeFixed();
+
+  // Re-render tab content
+  renderTabContent();
+
+  fireChange();
+}
+
+function applyModeFixed() {
+  const mode = MODES[activeTab];
+  for (const [key, val] of Object.entries(mode.fixed)) {
+    currentValues[key] = val;
+  }
+}
+
+/* ───────────────────────────────────────
+   Render tab content
+   ─────────────────────────────────────── */
+
+function renderTabContent() {
+  const container = document.getElementById('tab-content');
+  container.innerHTML = '';
+
+  const mode = MODES[activeTab];
+
+  // Mode-specific controls
+  for (const ctrl of mode.controls) {
+    const row = buildControlRow(ctrl);
+    container.appendChild(row);
+  }
+
+  // Preset chips
+  if (mode.presetChips && mode.presetChips.length > 0) {
+    const chipsWrap = document.createElement('div');
+    chipsWrap.className = 'preset-chips';
+    for (const chip of mode.presetChips) {
+      const btn = document.createElement('button');
+      btn.className = 'chip';
+      btn.textContent = chip.label;
+      btn.dataset.preset = chip.preset;
+      if (activeChip === chip.preset) btn.classList.add('active');
+      btn.addEventListener('click', () => applyPresetChip(chip.preset));
+      chipsWrap.appendChild(btn);
+    }
+    container.appendChild(chipsWrap);
+  }
+}
+
+/* ───────────────────────────────────────
+   Advanced controls
+   ─────────────────────────────────────── */
+
+function renderAdvancedControls() {
+  const container = document.getElementById('advanced-controls');
+  container.innerHTML = '';
+  for (const ctrl of ADVANCED_CONTROLS) {
+    const row = buildControlRow(ctrl);
+    container.appendChild(row);
+  }
+}
+
+/* ───────────────────────────────────────
+   Preset chips
+   ─────────────────────────────────────── */
+
+function applyPresetChip(presetName) {
+  const presetValues = getPresetOptions(presetName);
+  // Merge preset values but keep mode-fixed overrides
+  currentValues = { ...currentValues, ...presetValues };
+  applyModeFixed();
+
+  activeChip = presetName;
+  updateChipStates();
+
+  // Sync sliders/controls
+  syncAllControls();
+
+  fireChange();
+}
+
+function updateChipStates() {
+  document.querySelectorAll('.preset-chips .chip').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.preset === activeChip);
+  });
+}
+
+function syncAllControls() {
+  for (const [key, ctrl] of Object.entries(controlElements)) {
+    const val = currentValues[key];
+    if (val === undefined) continue;
+
+    if (ctrl.type === 'range') {
+      ctrl.input.value = val;
+      ctrl.valueSpan.textContent = formatValue(val, ctrl.step);
+    } else if (ctrl.type === 'select') {
+      ctrl.input.value = String(val);
+    } else if (ctrl.type === 'checkbox') {
+      ctrl.input.checked = !!val;
+    }
+  }
+}
+
+/* ───────────────────────────────────────
+   Build a control row
+   ─────────────────────────────────────── */
 
 function buildControlRow(ctrl) {
   const row = document.createElement('div');
@@ -127,19 +267,23 @@ function buildControlRow(ctrl) {
   if (ctrl.type === 'range') {
     const valueSpan = document.createElement('span');
     valueSpan.className = 'control-value';
-    valueSpan.dataset.key = ctrl.key;
 
     const input = document.createElement('input');
     input.type = 'range';
     input.min = ctrl.min;
     input.max = ctrl.max;
     input.step = ctrl.step;
-    input.dataset.key = ctrl.key;
+
+    const val = currentValues[ctrl.key] ?? ctrl.min;
+    input.value = val;
+    valueSpan.textContent = formatValue(val, ctrl.step);
 
     input.addEventListener('input', () => {
-      const val = parseFloat(input.value);
-      currentValues[ctrl.key] = val;
-      valueSpan.textContent = formatValue(val, ctrl.step);
+      const v = parseFloat(input.value);
+      currentValues[ctrl.key] = v;
+      valueSpan.textContent = formatValue(v, ctrl.step);
+      activeChip = null;
+      updateChipStates();
       fireChange();
     });
 
@@ -148,21 +292,19 @@ function buildControlRow(ctrl) {
     controlElements[ctrl.key] = { input, valueSpan, type: 'range', step: ctrl.step };
   } else if (ctrl.type === 'select') {
     const select = document.createElement('select');
-    select.dataset.key = ctrl.key;
-
     for (const opt of ctrl.options) {
       const option = document.createElement('option');
       option.value = opt.value;
       option.textContent = opt.label;
       select.appendChild(option);
     }
+    const val = currentValues[ctrl.key];
+    if (val !== undefined) select.value = String(val);
 
     select.addEventListener('change', () => {
-      if (ctrl.key === 'preset') {
-        applyPreset(select.value);
-      } else {
-        currentValues[ctrl.key] = parseFloat(select.value);
-      }
+      currentValues[ctrl.key] = parseFloat(select.value);
+      activeChip = null;
+      updateChipStates();
       fireChange();
     });
 
@@ -171,10 +313,12 @@ function buildControlRow(ctrl) {
   } else if (ctrl.type === 'checkbox') {
     const input = document.createElement('input');
     input.type = 'checkbox';
-    input.dataset.key = ctrl.key;
+    input.checked = !!currentValues[ctrl.key];
 
     input.addEventListener('change', () => {
       currentValues[ctrl.key] = input.checked;
+      activeChip = null;
+      updateChipStates();
       fireChange();
     });
 
@@ -186,49 +330,38 @@ function buildControlRow(ctrl) {
   return row;
 }
 
-function applyPreset(presetName) {
-  const presetValues = getPresetOptions(presetName);
-  currentValues = { ...presetValues, preset: presetName };
-  applyValuesToDOM(currentValues);
+/* ───────────────────────────────────────
+   Change handling
+   ─────────────────────────────────────── */
+
+function fireChange() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    if (livePreview) {
+      triggerChange();
+    } else {
+      hasPendingChange = true;
+    }
+  }, 300);
 }
 
-function applyValuesToDOM(values) {
-  for (const [key, ctrl] of Object.entries(controlElements)) {
-    if (key === 'preset') {
-      ctrl.input.value = values.preset || 'default';
-      continue;
-    }
-    const val = values[key];
-    if (val === undefined) continue;
+function triggerChange() {
+  if (onChange) onChange();
+}
 
-    if (ctrl.type === 'range') {
-      ctrl.input.value = val;
-      ctrl.valueSpan.textContent = formatValue(val, ctrl.step);
-    } else if (ctrl.type === 'select') {
-      ctrl.input.value = String(val);
-    } else if (ctrl.type === 'checkbox') {
-      ctrl.input.checked = !!val;
-    }
-  }
+/* ───────────────────────────────────────
+   Public API
+   ─────────────────────────────────────── */
+
+export function getTracingOptions() {
+  const opts = { ...currentValues };
+  // Remove non-tracer keys
+  delete opts.preset;
+  return opts;
 }
 
 function formatValue(val, step) {
   if (step >= 1) return String(Math.round(val));
   if (step >= 0.1) return val.toFixed(1);
   return val.toFixed(2);
-}
-
-let debounceTimer = null;
-
-function fireChange() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    if (onChange) onChange();
-  }, 300);
-}
-
-export function getTracingOptions() {
-  const opts = { ...currentValues };
-  delete opts.preset;
-  return opts;
 }

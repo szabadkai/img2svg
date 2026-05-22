@@ -2,6 +2,7 @@ import { initUI, getImageDataFromFile, renderOriginal, renderSVGPreview, showTra
 import { initControls, getTracingOptions } from './controls.js';
 import { traceImage } from './tracer.js';
 import { initDownload, setDownloadFilename, setButtonsEnabled } from './download.js';
+import { initTheme } from './theme.js';
 
 let currentImageData = null;
 let currentSVGString = null;
@@ -49,6 +50,7 @@ async function runTrace() {
 }
 
 function init() {
+  initTheme();
   initUI(handleFileLoad);
   initControls(runTrace);
   initDownload(() => currentSVGString);
